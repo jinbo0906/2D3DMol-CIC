@@ -1,0 +1,62 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="13">
+            <item index="0" class="java.lang.String" itemvalue="tensorboard" />
+            <item index="1" class="java.lang.String" itemvalue="pandas" />
+            <item index="2" class="java.lang.String" itemvalue="streamlit" />
+            <item index="3" class="java.lang.String" itemvalue="plotly" />
+            <item index="4" class="java.lang.String" itemvalue="numpy" />
+            <item index="5" class="java.lang.String" itemvalue="altair" />
+            <item index="6" class="java.lang.String" itemvalue="Pillow" />
+            <item index="7" class="java.lang.String" itemvalue="transformers" />
+            <item index="8" class="java.lang.String" itemvalue="torch" />
+            <item index="9" class="java.lang.String" itemvalue="tqdm" />
+            <item index="10" class="java.lang.String" itemvalue="hydra-core" />
+            <item index="11" class="java.lang.String" itemvalue="h5py" />
+            <item index="12" class="java.lang.String" itemvalue="nvidia-modulus" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E101" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N802" />
+          <option value="N806" />
+          <option value="N812" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="centroids" />
+          <option value="k" />
+          <option value="dict.iteritems" />
+          <option value="用于交互三元组的嵌入大小" />
+          <option value="原子间相互作用的截止距离" />
+          <option value="如果设置为" />
+          <option value="用于基变换的距离的嵌入大小" />
+          <option value="采用基变换的角度的嵌入大小" />
+          <option value="用于基变换的扭转的嵌入大小" />
+          <option value="球面谐波数" />
+          <option value="径向基函数的个数" />
+          <option value="envelop_exponent" />
+          <option value="dict.__setitem__" />
+          <option value="torch.utils.data.dataloader.DataLoader.__getitem__" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
