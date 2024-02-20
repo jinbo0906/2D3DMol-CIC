@@ -1,0 +1,13 @@
+name: FullyConnectedNetwork
+conf:
+  encoding:
+    embed_type: "Identity"
+  layer:
+    layer_n: 4
+    activate: "tanh"
+    activate_scale_factor: 1.0
+    final_activate: "Identify"
+    norm: False
+    layer_size: [ 100, 100, 100, 100 ]
+load_checkpoint: False
+checkpoint_path: "./"
