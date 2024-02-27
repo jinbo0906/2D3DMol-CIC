@@ -1,0 +1,8 @@
+test_path: 'data/test_lab.csv'
+geom_prepath: 'data/3D_canonical_test_lab.npz'
+checkpoint_dir: './outputs/2024-02-27/21-44-34'
+smiles_columns: 'smiles'
+target_columns_pre: 'efficiency'
+env_columns_pre: 'concentration'
+preds_path: './preds'
+features_generator: 'rdkit_2d_normalized'

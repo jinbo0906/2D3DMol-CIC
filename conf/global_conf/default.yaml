@@ -1,3 +1,4 @@
-seed: 230811
+seed: 42
 device: cuda
 debug: False
+tensorboard_path: ./tensorboard_log

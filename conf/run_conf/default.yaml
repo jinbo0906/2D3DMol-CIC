@@ -1,28 +1,39 @@
 train_stages: 1
 cur_stage: 1
 switch_error: 0.22
-optim: adam
-optim_conf:
-  lr: 1e-3
-  betas: [ 0.9, 0.999 ]
-  eps: 1e-8
-  weight_decay: 0.0
-  amsgrad: False
-sch: step
-sch_step:
-  gamma: 0.1
-  stage: 4
 loss:
-  pde_loss: NSLoss
   observe_rmsd_loss_weight: 1.0
   observe_dis_loss_weight: 1.0
   observe_adj3_loss_weight: 0.0001
-  pde_loss_weight: 1.0
 main_conf:
   run_mode: train
 train_conf:
-  epoch: 30
   eval_freq: 100
-  log_freq: 0.0001
-  print_frequency: 50
+  log_frequency: 10
+  num_folds: 10
+  save_smiles_splits: False
+  splits_save_path: "save_smiles_splits"
+  dataset_type: 'regression'
+  loss_function: 'mse'
+  num_tasks: 1
+  cache_cutoff: 10000
+  num_workers: 16
+  batch_size: 64
+  class_balance: False
+  save_folder: "./"
+  checkpoint_paths: None
+  init_lr: 1e-4
+  max_lr: 1e-3
+  final_lr: 1e-4
+  epochs: 500  # 训练轮数
+  warmup_epochs: 50
+  metrics: ["r2", "rmse", "mae"]
+  save_preds: True
+data_conf:
+  split_sizes: None
+  split_type: 'rondom'
+
+
+
+
 

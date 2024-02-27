@@ -2,42 +2,22 @@ norm:
   time_norm: False
   max_t: 30
 observe_data:
-  sampler: UniformSampler
-  sampler_conf:
-    batch_size: 128
-    replace: False
-  reweighting: NoReWeighting
-  reweighting_conf: None
   n_eval_sections: 0
   val_ratio: 0.0
-  qm9_csv_file: 'data/QM9/qm9.csv'
-  qm9_resource_file: 'data/QM9/qm9.pickle'
-  gdb9_sdf_file: 'data/gdb9/gdb9.sdf'
-  gdb9_json_file: 'data/gdb9/incons.json'
-  ob_sdf_file: 'data/ob_gdb9/'
-  gbd9_init: random  # random/rdkit
+  smi_train_csv_file: 'data/train/canonical_train_1241.csv'
+  geom_train_npz_file: 'data/train/3D_canonical_train_1241.npz'
+  id_columns: 'id'
+  smiles_columns: 'smiles'
+  target_columns: 'efficiency'
+  is_env: True
+  env_columns: 'concentration'
+  dataset_type: 'regression'
+  features_generator: 'rdkit_2d_normalized'
+#  gdb9_json_file: 'data/gdb9/incons.json'
+#  ob_sdf_file: 'data/ob_gdb9/'
+#  gbd9_init: random  # random/rdkit
   limit: -1
-pde_data:
-  generator: UniformGenerator
-  generator_conf:
-    total_n: 100000
-    device: cuda
-  generator_mol_num: 5
-  UniformGenerator_conf:
-    no_special_conf: True
-  PartEnhancedUniformGenerator_conf:
-    enhanced_ratio: 0.3
-  sampler: UniformSampler
-  sampler_conf:
-    batch_size: 640 # 128*5
-    replace: False
-  UniformSampler_conf:
-    no_special_conf: True
-  reweighting: NoReWeighting
-  reweighting_conf:
-    using_reweighting: True
-  NoReWeighting_conf:
-    no_special_conf: True
+
 
 
 

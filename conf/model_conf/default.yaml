@@ -1,13 +1,20 @@
-name: FullyConnectedNetwork
-conf:
-  encoding:
-    embed_type: "Identity"
-  layer:
-    layer_n: 4
-    activate: "tanh"
-    activate_scale_factor: 1.0
-    final_activate: "Identify"
-    norm: False
-    layer_size: [ 100, 100, 100, 100 ]
+layer:
+  depth: 4
+  activate: "ReLU"
+  norm: False
+  hidden_size: 400
+  hidden_size_3D: 128
+  aggregation: 'mean'
+  aggregation_norm: 100
+  dropout: 0.0
+  ffn_num_layers: 4
+  ffn_hidden_size: ${layer.hidden_size}
+  bias: False
+is_env: True
 load_checkpoint: False
 checkpoint_path: "./"
+ensemble_size: 1
+loss_function: 'mse'
+checkpoint_frzn: None
+freeze_first_only: False
+number_of_molecules: 1
