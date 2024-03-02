@@ -13,10 +13,13 @@ from tqdm import trange, tqdm
 from torch.optim.lr_scheduler import ExponentialLR, _LRScheduler
 from torch.optim import Optimizer
 
-from models import get_loss_func, MoleculeModel
+from models.model import MoleculeModel
+from models.loss_func import get_loss_func
 from chemprop.constants import MODEL_FILE_NAME
-from utils import MoleculeDataLoader, MoleculeDataset, set_cache_graph, split_data, StandardScaler, \
-    get_metric_func, save_smiles_splits, save_checkpoint, load_checkpoint, build_optimizer, build_lr_scheduler
+from utils.data_utils import MoleculeDataset, set_cache_graph, MoleculeDataLoader, StandardScaler
+from utils.util_utils import split_data, get_metric_func, save_smiles_splits, save_checkpoint, load_checkpoint, \
+    build_optimizer, build_lr_scheduler
+
 from chemprop.utils import makedirs
 
 
@@ -28,8 +31,8 @@ def run_training(run_conf: dict,
                  seed: int,
                  log,
                  save_dir) -> Dict[str, List[float]]:
-
     # Split data 分割数据集
+    log.info(f'Splitting data with seed {seed}')
     train_data, val_data, test_data = split_data(data=data,
                                                  split_type=run_conf['data_conf']['split_type'],
                                                  seed=seed,
@@ -100,13 +103,14 @@ def run_training(run_conf: dict,
             writer = SummaryWriter(logdir=save_model_dir)
 
         # Load/build model 加载/构建模型
-        checkpoint_paths = run_conf['train_conf']['checkpoint_paths']
-        if checkpoint_paths is not None:
-            log.info(f'Loading model {model_idx} from {checkpoint_paths[model_idx]}')
-            model = load_checkpoint(log, model_conf, run_conf, global_conf, checkpoint_paths[model_idx], device=global_conf['device'])
-        else:
-            log.info(f'Building model {model_idx}')
-            model = MoleculeModel(model_conf, run_conf, global_conf)
+        # checkpoint_paths = run_conf['train_conf']['checkpoint_paths']
+        # if checkpoint_paths is not None:
+        #     log.info(f'Loading model {model_idx} from {checkpoint_paths[model_idx]}')
+        #     model = load_checkpoint(log, model_conf, run_conf, global_conf, checkpoint_paths[model_idx],
+        #                             device=global_conf['device'])
+        # else:
+        log.info(f'Building model {model_idx}')
+        model = MoleculeModel(model_conf, run_conf, global_conf)
 
         log.info(model)
         if global_conf['device'] == 'cuda':
@@ -135,7 +139,6 @@ def run_training(run_conf: dict,
                 loss_func=loss_func,
                 optimizer=optimizer,
                 scheduler=scheduler,
-                args=run_conf,
                 n_iter=n_iter,
                 writer=writer,
             )
@@ -163,7 +166,8 @@ def run_training(run_conf: dict,
 
         # Evaluate on test set using model with the best validation score 使用验证得分最高的模型对测试集进行评估
         log.info(f'Model {model_idx} best validation rmse = {best_score:.6f} on epoch {best_epoch}')
-        model = load_checkpoint(log, model_conf, run_conf, global_conf, os.path.join(save_model_dir, MODEL_FILE_NAME), device=global_conf['device'])
+        model = load_checkpoint(log, model_conf, run_conf, global_conf, os.path.join(save_model_dir, MODEL_FILE_NAME),
+                                device=global_conf['device'])
 
         test_preds = predict(
             model=model,
@@ -230,26 +234,26 @@ def train(logger,
           loss_func: Callable,
           optimizer: Optimizer,
           scheduler: _LRScheduler,
-          args: dict = None,
           n_iter: int = 0,
           writer: SummaryWriter = None
           ) -> int:
-
     model.train()
     loss_sum = iter_count = 0
     for batch in tqdm(data_loader, total=len(data_loader), leave=False):
         # Prepare batch
         batch: MoleculeDataset
-        mol_batch, target_batch, data_weights_batch, envs_batch = batch.batch_graph(), batch.targets(), batch.data_weights(), batch.envs()
+        mol_batch, features_batch, target_batch, data_weights_batch, envs_batch = batch.batch_graph(), \
+            batch.features(), batch.targets(), batch.data_weights(), batch.envs()
         mask = torch.tensor([[x is not None for x in tb] for tb in target_batch],
                             dtype=torch.bool)  # shape(batch, tasks)
         targets = torch.tensor([[0 if x is None else x for x in tb] for tb in target_batch])  # shape(batch, tasks)
+
         target_weights = torch.ones(targets.shape[1]).unsqueeze(0)
         data_weights = torch.tensor(data_weights_batch).unsqueeze(1)  # shape(batch,1)
 
         # Run model
         model.zero_grad()
-        preds = model(mol_batch, envs_batch)
+        preds = model(mol_batch, features_batch, envs_batch)
         # Move tensors to correct device
         torch_device = preds.device
         mask = mask.to(torch_device)
@@ -300,7 +304,6 @@ def predict(
         return_unc_parameters: bool = False,
         dropout_prob: float = 0.0,
 ) -> List[List[float]]:
-
     model.eval()
 
     # Activate dropout layers to work during inference for uncertainty estimation
@@ -316,12 +319,14 @@ def predict(
         # Prepare batch
         batch: MoleculeDataset
         mol_batch = batch.batch_graph()
+        features_batch = batch.features()
         envs_batch = batch.envs()
 
         # Make predictions
         with torch.no_grad():
             batch_preds = model(
                 mol_batch,
+                features_batch,
                 envs_batch
             )
 
@@ -368,7 +373,6 @@ def evaluate_predictions(
         num_tasks: int,
         metrics: List[str]
 ) -> Dict[str, List[float]]:
-
     metric_to_func = {metric: get_metric_func(metric) for metric in metrics}
 
     if len(preds) == 0:
@@ -393,7 +397,7 @@ def evaluate_predictions(
             continue
 
         for metric, metric_func in metric_to_func.items():
-                results[metric].append(metric_func(valid_targets[i], valid_preds[i]))
+            results[metric].append(metric_func(valid_targets[i], valid_preds[i]))
 
     results = dict(results)
 
@@ -401,7 +405,45 @@ def evaluate_predictions(
 
 
 def activate_dropout(module: nn.Module, dropout_prob: float):
-
     if isinstance(module, nn.Dropout):
         module.p = dropout_prob
         module.train()
+
+
+def run_testing(log, model_path, test_data, run_conf, model_conf, global_conf, save_pre_dir):
+    test_data, _, _ = split_data(data=test_data, split_type='non-random',
+                                 sizes=(1, 0.0, 0.0),
+                                 num_folds=run_conf['train_conf']['num_folds']
+                                 )
+    scaler = test_data.normalize_targets()  # 归一化目标值
+    # Set up test set evaluation  设置测试集评估
+    test_smiles, test_targets = test_data.smiles(), test_data.targets()
+    sum_test_preds = np.zeros((len(test_smiles), run_conf['train_conf']['num_tasks']))
+    num_workers = 0
+    test_data_loader = MoleculeDataLoader(
+        dataset=test_data,
+        batch_size=run_conf['train_conf']['batch_size'],
+        num_workers=num_workers
+    )
+    model = load_checkpoint(log, model_conf, run_conf, global_conf, model_path,
+                            device=global_conf['device'])
+
+    test_preds = predict(
+        model=model,
+        data_loader=test_data_loader,
+        scaler=scaler
+    )
+    if len(test_preds) != 0:
+        sum_test_preds += np.array(test_preds)
+    avg_test_preds = (sum_test_preds / model_conf['ensemble_size']).tolist()
+    test_preds_dataframe = pd.DataFrame(data={'smiles': test_data.smiles()})
+    # test_real_dataframe = pd.DataFrame(data={'smiles': test_data.smiles()})
+    dataframe_name = ['pre']
+    for i, task_name in enumerate(dataframe_name):
+        if task_name == 'pre':
+            test_preds_dataframe[task_name] = [pred[i] for pred in avg_test_preds]
+
+    preds_save_path = os.path.join(save_pre_dir, 'preds.csv')
+    test_preds_dataframe.to_csv(preds_save_path, index=False)
+
+    return preds_save_path

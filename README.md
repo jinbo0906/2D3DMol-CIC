@@ -25,7 +25,7 @@ Please put the downloaded files/folders under data/ directory.
 - matplotlib == 3.5.1
 
 ## Training
-
+basic-debug: python train.py --config-name=Basic hydra.job.chdir=True
 
 ## Evaluation
 

@@ -13,7 +13,7 @@ import sympy as sym
 
 from chemprop.features import BatchMolGraph, get_atom_fdim, get_bond_fdim, mol2graph
 
-from utils import bessel_basis, real_sph_harm
+from models.utils import bessel_basis, real_sph_harm
 
 
 class MPN_2D(nn.Module):
@@ -28,13 +28,16 @@ class MPN_2D(nn.Module):
         :param bond_fdim: Bond feature vector dimension.
         """
         super(MPN_2D, self).__init__()
+        self.device = device
+        self.model_conf = model_conf
         self.atom_fdim = atom_fdim or get_atom_fdim()
         self.bond_fdim = bond_fdim or get_bond_fdim()
-        self.encoder = nn.ModuleList([MPNEncoder_2D(model_conf, device, self.atom_fdim, self.bond_fdim)
-                                      for _ in range(model_conf['number_of_molecules'])])
+        self.encoder = nn.ModuleList([MPNEncoder_2D(self.model_conf, self.device, self.atom_fdim, self.bond_fdim)
+                                      for _ in range(self.model_conf['number_of_molecules'])])
 
     def forward(self,
-                batch: Union[List[List[str]], List[List[Chem.Mol]], List[List[Tuple[Chem.Mol, Chem.Mol]]], List[BatchMolGraph]]
+                batch: Union[List[List[str]], List[List[Chem.Mol]], List[List[Tuple[Chem.Mol, Chem.Mol]]], List[BatchMolGraph]],
+                features_batch: List[np.ndarray] = None
                 ) -> torch.FloatTensor:
         """
         Encodes a batch of molecules.
@@ -56,6 +59,12 @@ class MPN_2D(nn.Module):
 
         output = reduce(lambda x, y: torch.cat((x, y), dim=1), encodings)
 
+        if self.model_conf['use_input_features']:
+            features_batch = torch.from_numpy(np.stack(features_batch)).float().to(self.device)
+            if len(features_batch.shape) == 1:
+                features_batch = features_batch.view(1, -1)
+            output = torch.cat([output, features_batch], dim=1)
+
         return output
 
 
@@ -71,11 +80,12 @@ class MPN_3D(nn.Module):
         :param bond_fdim: Bond feature vector dimension.
         """
         super(MPN_3D, self).__init__()
+        self.model_conf = model_conf
         self.atom_fdim = atom_fdim or get_atom_fdim()
         self.bond_fdim = bond_fdim or get_bond_fdim()
         self.device = device
-        self.encoder = nn.ModuleList([MPNEncoder_3D(model_conf, self.atom_fdim, self.bond_fdim)
-                                      for _ in range(model_conf['number_of_molecules'])])
+        self.encoder = nn.ModuleList([MPNEncoder_3D(self.model_conf, self.device, self.atom_fdim, self.bond_fdim)
+                                      for _ in range(self.model_conf['number_of_molecules'])])
 
     def forward(self,
                 batch: Union[List[List[str]], List[List[Chem.Mol]], List[List[Tuple[Chem.Mol, Chem.Mol]]], List[BatchMolGraph]]
@@ -159,7 +169,7 @@ class MPNEncoder_2D(nn.Module):
         :return: A PyTorch tensor of shape :code:`(num_molecules, hidden_size)` containing the encoding of each molecule.
         一个形状为:code: ' (num_molecules, hidden_size) '的PyTorch张量，包含每个分子的编码。
         """
-        f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components(atom_messages=self.atom_messages)
+        f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components()
         f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb = f_atoms.to(self.device), f_atoms2.to(self.device), f_bonds.to(self.device), a2b.to(self.device), b2a.to(self.device), b2revb.to(self.device)
 
         # Input
@@ -211,7 +221,7 @@ class MPNEncoder_3D(nn.Module):
         super(MPNEncoder_3D, self).__init__()
         self.atom_fdim = atom_fdim
         self.bond_fdim = bond_fdim
-        self.hidden_size = model_conf['layer']['hidden_size']
+        self.hidden_size = model_conf['layer']['hidden_size_3D']
         self.bias = model_conf['layer']['bias']
         self.depth = model_conf['layer']['depth']
         self.dropout = model_conf['layer']['dropout']
@@ -225,7 +235,7 @@ class MPNEncoder_3D(nn.Module):
         self.dropout_layer = nn.Dropout(p=self.dropout)
 
         # Activation
-        self.act_func = get_activation_function(model_conf['layer']['activation'])
+        self.act_func = get_activation_function(model_conf['layer']['activate'])
 
         # Cached zeros
         self.cached_zero_vector = nn.Parameter(torch.zeros(self.hidden_size), requires_grad=False)
@@ -249,7 +259,7 @@ class MPNEncoder_3D(nn.Module):
         :return: A PyTorch tensor of shape :code:`(num_molecules, hidden_size)` containing the encoding of each molecule.
         一个形状为:code: ' (num_molecules, hidden_size) '的PyTorch张量，包含每个分子的编码。
         """
-        f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components(atom_messages=self.atom_messages)
+        f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components()
         f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb = f_atoms.to(self.device), f_atoms2.to(self.device), f_bonds.to(self.device), a2b.to(self.device), b2a.to(self.device), b2revb.to(self.device)
 
         input_atom = self.W_i_atom(f_atoms2)  # num_atoms x hidden_size

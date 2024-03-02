@@ -6,8 +6,8 @@ from rdkit import Chem
 from torch import nn
 import torch
 
-from models import MPN_2D, MPN_3D, BesselBasisLayer
-from chemprop.nn_utils import get_activation_function
+from models.layers import MPN_2D, MPN_3D, BesselBasisLayer
+from chemprop.nn_utils import get_activation_function, initialize_weights
 from chemprop.features import BatchMolGraph
 
 
@@ -24,6 +24,8 @@ class MoleculeModel(nn.Module):
         self.create_ffn(model_conf)
         self.w = nn.Parameter(torch.ones(2))
 
+        initialize_weights(self)
+
     def create_encoder(self, model_conf, device) -> None:
         """
         Creates the message passing encoder for the model.
@@ -34,17 +36,24 @@ class MoleculeModel(nn.Module):
 
         if model_conf['checkpoint_frzn'] is not None:
             if model_conf['freeze_first_only']:  # Freeze only the first encoder
-                for param in list(self.encoder.encoder.children())[0].parameters():
+                for param in list(self.encoder_2D.encoder.children())[0].parameters():
+                    param.requires_grad = False
+                # 如果需要同时处理2D和3D中的第一个子模块，可以添加以下代码：
+                for param in list(self.encoder_3D.encoder.children())[0].parameters():
                     param.requires_grad = False
             else:  # Freeze all encoders
-                for param in self.encoder.parameters():
+                for param in self.encoder_2D.parameters():
+                    param.requires_grad = False
+                for param in self.encoder_3D.parameters():
                     param.requires_grad = False
 
     def create_ffn(self, model_conf) -> None:
         """
         Creates the feed-forward layers for the model.
         """
-        if model_conf['is_env']:
+        if model_conf['is_env'] and model_conf['use_input_features']:
+            first_linear_dim = model_conf['layer']['hidden_size'] + 64 + model_conf['layer']['hidden_size_3D'] + 200
+        elif model_conf['is_env'] and not model_conf['use_input_features']:
             first_linear_dim = model_conf['layer']['hidden_size'] + 64 + model_conf['layer']['hidden_size_3D']
         else:
             first_linear_dim = model_conf['layer']['hidden_size'] + model_conf['layer']['hidden_size_3D']
@@ -81,6 +90,7 @@ class MoleculeModel(nn.Module):
 
     def fingerprint(self,
                     batch: Union[List[List[str]], List[List[Chem.Mol]], List[List[Tuple[Chem.Mol, Chem.Mol]]], List[BatchMolGraph]],
+                    features_batch: List[np.ndarray] = None,
                     fingerprint_type: str = 'MPN') -> torch.Tensor:
         """
         Encodes the latent representations of the input molecules from intermediate stages of the model.
@@ -94,14 +104,15 @@ class MoleculeModel(nn.Module):
         :return: The latent fingerprint vectors.
         """
         if fingerprint_type == 'MPN':
-            return self.encoder(batch)
+            return self.encoder_2D(batch, features_batch)
         elif fingerprint_type == 'last_FFN':
-            return self.ffn[:-1](self.encoder(batch))
+            return self.ffn[:-1](self.encoder_2D(batch, features_batch))
         else:
             raise ValueError(f'Unsupported fingerprint type {fingerprint_type}.')
 
     def forward(self,
                 batch: Union[List[List[str]], List[List[Chem.Mol]], List[List[Tuple[Chem.Mol, Chem.Mol]]], List[BatchMolGraph]],
+                features_batch: List[np.ndarray] = None,
                 envs_batch: List[np.ndarray] = None) -> torch.FloatTensor:
         """
         Runs the :class:`MoleculeModel` on input.
@@ -114,7 +125,7 @@ class MoleculeModel(nn.Module):
         """
         # w1 = torch.exp(self.w[0])/torch.sum(torch.exp(self.w))
         # w2 = torch.exp(self.w[1]) / torch.sum(torch.exp(self.w))
-        output_2D = self.encoder_2D(batch)
+        output_2D = self.encoder_2D(batch, features_batch)
         output_3D = self.encoder_3D(batch)
 
         env_emb = torch.Tensor([BesselBasisLayer(exp(env))*0.1 for env in envs_batch]).float().to(self.device)

@@ -14,7 +14,7 @@ from omegaconf import OmegaConf
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from utils import get_data, run_training, extract_model_pt_paths, run_testing
+from utils import get_data, run_training, run_testing, extract_model_pt_paths
 
 from chemprop.constants import TEST_SCORES_FILE_NAME
 
@@ -64,12 +64,12 @@ class TrainingSystem:
 
         # observe data
         observe_data_conf = self.data_conf["observe_data"]
-        smi_train_csv_file_path = os.path.join(self.project_root, observe_data_conf['smi_csv_file'])
+        smi_train_csv_file_path = os.path.join(self.project_root, observe_data_conf['smi_train_csv_file'])
         geom_train_csv_file_path = os.path.join(self.project_root, observe_data_conf['geom_train_npz_file'])
         self.data = get_data(
             smi_path=smi_train_csv_file_path,
             geom_path=geom_train_csv_file_path,
-            data_args=self.data_conf
+            data_args=observe_data_conf
         )
 
     def train_loop(self):
