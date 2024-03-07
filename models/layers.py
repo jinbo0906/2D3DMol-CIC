@@ -3,7 +3,7 @@ from typing import List, Union, Tuple
 from functools import reduce
 
 import numpy as np
-from chemprop.nn_utils import get_activation_function, index_select_ND
+from chem.nn_utils import get_activation_function, index_select_ND
 from rdkit import Chem
 import torch
 import torch.nn as nn
@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import tensorflow as tf
 import sympy as sym
 
-from chemprop.features import BatchMolGraph, get_atom_fdim, get_bond_fdim, mol2graph
+from chem.features import BatchMolGraph, get_atom_fdim, get_bond_fdim, mol2graph
 
 from models.utils import bessel_basis, real_sph_harm
 
@@ -22,11 +22,7 @@ class MPN_2D(nn.Module):
                  device,
                  atom_fdim: int = None,
                  bond_fdim: int = None):
-        """
-        :param args: A :class:`~chemprop.args.TrainArgs` object containing model arguments.
-        :param atom_fdim: Atom feature vector dimension.
-        :param bond_fdim: Bond feature vector dimension.
-        """
+
         super(MPN_2D, self).__init__()
         self.device = device
         self.model_conf = model_conf
@@ -36,18 +32,9 @@ class MPN_2D(nn.Module):
                                       for _ in range(self.model_conf['number_of_molecules'])])
 
     def forward(self,
-                batch: Union[List[List[str]], List[List[Chem.Mol]], List[List[Tuple[Chem.Mol, Chem.Mol]]], List[BatchMolGraph]],
-                features_batch: List[np.ndarray] = None
+                batch: Union[List[List[str]], List[List[Chem.Mol]], List[List[Tuple[Chem.Mol, Chem.Mol]]], List[BatchMolGraph]]
                 ) -> torch.FloatTensor:
-        """
-        Encodes a batch of molecules.
-        编码一批分子
-        :param batch: A list of SMILES, a list of RDKit molecules, or a
-                      list of :class:`~chemprop.features.featurization.BatchMolGraph`.
-                      The outer list or BatchMolGraph is of length :code:`num_molecules` (number of datapoints in batch),
-                      the inner list is of length :code:`number_of_molecules` (number of molecules per datapoint).
-        :return: A PyTorch tensor of shape :code:`(num_molecules, hidden_size)` containing the encoding of each molecule.
-        """
+
         if type(batch[0]) != BatchMolGraph:
             # Group first molecules, second molecules, etc for mol2graph
             batch = [[mols[i] for mols in batch] for i in range(len(batch[0]))]
@@ -59,12 +46,6 @@ class MPN_2D(nn.Module):
 
         output = reduce(lambda x, y: torch.cat((x, y), dim=1), encodings)
 
-        if self.model_conf['use_input_features']:
-            features_batch = torch.from_numpy(np.stack(features_batch)).float().to(self.device)
-            if len(features_batch.shape) == 1:
-                features_batch = features_batch.view(1, -1)
-            output = torch.cat([output, features_batch], dim=1)
-
         return output
 
 
@@ -74,11 +55,7 @@ class MPN_3D(nn.Module):
                  device,
                  atom_fdim: int = None,
                  bond_fdim: int = None):
-        """
-        :param args: A :class:`~chemprop.args.TrainArgs` object containing model arguments.
-        :param atom_fdim: Atom feature vector dimension.
-        :param bond_fdim: Bond feature vector dimension.
-        """
+
         super(MPN_3D, self).__init__()
         self.model_conf = model_conf
         self.atom_fdim = atom_fdim or get_atom_fdim()
@@ -90,15 +67,7 @@ class MPN_3D(nn.Module):
     def forward(self,
                 batch: Union[List[List[str]], List[List[Chem.Mol]], List[List[Tuple[Chem.Mol, Chem.Mol]]], List[BatchMolGraph]]
                 ) -> torch.FloatTensor:
-        """
-        Encodes a batch of molecules.
-        编码一批分子
-        :param batch: A list of SMILES, a list of RDKit molecules, or a
-                      list of :class:`~chemprop.features.featurization.BatchMolGraph`.
-                      The outer list or BatchMolGraph is of length :code:`num_molecules` (number of datapoints in batch),
-                      the inner list is of length :code:`number_of_molecules` (number of molecules per datapoint).
-        :return: A PyTorch tensor of shape :code:`(num_molecules, hidden_size)` containing the encoding of each molecule.
-        """
+
         if type(batch[0]) != BatchMolGraph:
             # Group first molecules, second molecules, etc for mol2graph
             batch = [[mols[i] for mols in batch] for i in range(len(batch[0]))]
@@ -114,7 +83,6 @@ class MPN_3D(nn.Module):
 
 
 class MPNEncoder_2D(nn.Module):
-    """An :class:`MPNEncoder` is a message passing neural network for encoding a molecule."""
 
     def __init__(self, model_conf, device, atom_fdim: int, bond_fdim: int):
 
@@ -162,13 +130,7 @@ class MPNEncoder_2D(nn.Module):
 
     def forward(self,
                 mol_graph: BatchMolGraph) -> torch.FloatTensor:
-        """
-        Encodes a batch of molecular graphs.
-        :param mol_graph: A :class:`~chemprop.features.featurization.BatchMolGraph` representing
-                          a batch of molecular graphs.
-        :return: A PyTorch tensor of shape :code:`(num_molecules, hidden_size)` containing the encoding of each molecule.
-        一个形状为:code: ' (num_molecules, hidden_size) '的PyTorch张量，包含每个分子的编码。
-        """
+
         f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components()
         f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb = f_atoms.to(self.device), f_atoms2.to(self.device), f_bonds.to(self.device), a2b.to(self.device), b2a.to(self.device), b2revb.to(self.device)
 
@@ -214,14 +176,13 @@ class MPNEncoder_2D(nn.Module):
 
 
 class MPNEncoder_3D(nn.Module):
-    """An :class:`MPNEncoder` is a message passing neural network for encoding a molecule."""
 
     def __init__(self, model_conf, device, atom_fdim: int, bond_fdim: int):
 
         super(MPNEncoder_3D, self).__init__()
         self.atom_fdim = atom_fdim
         self.bond_fdim = bond_fdim
-        self.hidden_size = model_conf['layer']['hidden_size_3D']
+        self.hidden_size_3D = model_conf['layer']['hidden_size_3D']
         self.bias = model_conf['layer']['bias']
         self.depth = model_conf['layer']['depth']
         self.dropout = model_conf['layer']['dropout']
@@ -238,27 +199,20 @@ class MPNEncoder_3D(nn.Module):
         self.act_func = get_activation_function(model_conf['layer']['activate'])
 
         # Cached zeros
-        self.cached_zero_vector = nn.Parameter(torch.zeros(self.hidden_size), requires_grad=False)
+        self.cached_zero_vector = nn.Parameter(torch.zeros(self.hidden_size_3D), requires_grad=False)
 
         # Input
         input_dim = self.atom_fdim + 64
-        self.W_i_atom = nn.Linear(input_dim, self.hidden_size, bias=self.bias)
+        self.W_i_atom = nn.Linear(input_dim, self.hidden_size_3D, bias=self.bias)
 
-        self.gru = BatchGRU(self.hidden_size)
+        self.gru = BatchGRU(self.hidden_size_3D)
 
-        self.W_h = nn.Linear(self.hidden_size*2, self.hidden_size)
-        self.W_o = nn.Linear(self.hidden_size, self.hidden_size)
+        self.W_h = nn.Linear(self.hidden_size_3D*2, self.hidden_size_3D)
+        self.W_o = nn.Linear(self.hidden_size_3D, self.hidden_size_3D)
 
     def forward(self,
                 mol_graph: BatchMolGraph) -> torch.FloatTensor:
-        """
-        Encodes a batch of molecular graphs.
 
-        :param mol_graph: A :class:`~chemprop.features.featurization.BatchMolGraph` representing
-                          a batch of molecular graphs.
-        :return: A PyTorch tensor of shape :code:`(num_molecules, hidden_size)` containing the encoding of each molecule.
-        一个形状为:code: ' (num_molecules, hidden_size) '的PyTorch张量，包含每个分子的编码。
-        """
         f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components()
         f_atoms, f_atoms2, f_bonds, a2b, b2a, b2revb = f_atoms.to(self.device), f_atoms2.to(self.device), f_bonds.to(self.device), a2b.to(self.device), b2a.to(self.device), b2revb.to(self.device)
 
@@ -329,9 +283,7 @@ class BatchGRU(nn.Module):
 
 
 def Envelope(inputs):
-    """
-    Envelope function that ensures a smooth cutoff
-    """
+
     exponent = 6
     p = exponent + 1
     a = -(p + 1) * (p + 2) / 2
@@ -342,6 +294,7 @@ def Envelope(inputs):
 
 
 def BesselBasisLayer(inputs):
+
     num_radial = 64  # num_radial=6
     inv_cutoff = np.array(1 / 5, dtype=np.float32)  # cutoff=5   从一个类张量的物体中创建一个常数张量
     # envelope = Envelope(inputs)  # 5
@@ -353,6 +306,7 @@ def BesselBasisLayer(inputs):
     # Necessary for proper broadcasting behaviour
     d_scaled = np.expand_dims(d_scaled, -1)
     # d_cutoff = Envelope(d_scaled)
+
     return np.sin(freq_init * d_scaled)
 
 

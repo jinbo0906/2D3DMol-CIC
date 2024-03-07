@@ -7,18 +7,19 @@ from torch import nn
 import torch
 
 from models.layers import MPN_2D, MPN_3D, BesselBasisLayer
-from chemprop.nn_utils import get_activation_function, initialize_weights
-from chemprop.features import BatchMolGraph
+from chem.nn_utils import get_activation_function, initialize_weights
+from chem.features import BatchMolGraph
 
 
 class MoleculeModel(nn.Module):
 
     def __init__(self, model_conf, run_conf, global_conf):
         super(MoleculeModel, self).__init__()
+
         self.loss_function = model_conf['loss_function']
         self.device = global_conf['device']
-
         self.output_size = run_conf['train_conf']['num_tasks']
+        self.use_input_features = model_conf['use_input_features']
 
         self.create_encoder(model_conf, self.device)
         self.create_ffn(model_conf)
@@ -125,7 +126,9 @@ class MoleculeModel(nn.Module):
         """
         # w1 = torch.exp(self.w[0])/torch.sum(torch.exp(self.w))
         # w2 = torch.exp(self.w[1]) / torch.sum(torch.exp(self.w))
-        output_2D = self.encoder_2D(batch, features_batch)
+        if self.use_input_features:
+            features_batch = torch.from_numpy(np.stack(features_batch)).float().to(self.device)
+        output_2D = self.encoder_2D(batch)
         output_3D = self.encoder_3D(batch)
 
         env_emb = torch.Tensor([BesselBasisLayer(exp(env))*0.1 for env in envs_batch]).float().to(self.device)
@@ -133,7 +136,19 @@ class MoleculeModel(nn.Module):
 
         output1 = torch.cat([output_2D, output_3D], dim=1)
         output = torch.cat([output1, env_emb], dim=1)
-        # output = torch.cat([output_2D, env_emb], dim=1)
+
+        if self.use_input_features:
+            if len(features_batch.shape) == 1:
+                features_batch = features_batch.view(1, -1)
+
+            output = torch.cat([output, features_batch], dim=1)
+
+        # # save
+        # save_data = output.detach().cpu().numpy()
+        # np.save('test_data.npy', save_data)
+        #
+        # # save model
+        # torch.save(self.ffn, 'model.pt')
 
         output = self.ffn(output)
 

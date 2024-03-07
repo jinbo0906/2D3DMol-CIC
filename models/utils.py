@@ -2,6 +2,13 @@ from scipy.optimize import brentq
 from scipy import special as sp
 import sympy as sym
 import numpy as np
+import torch.nn as nn
+
+
+def activate_dropout(module: nn.Module, dropout_prob: float):
+    if isinstance(module, nn.Dropout):
+        module.p = dropout_prob
+        module.train()
 
 
 def Jn(r, n):

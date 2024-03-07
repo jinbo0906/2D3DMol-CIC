@@ -6,6 +6,9 @@ defaults:
   - test_conf: default
   - _self_
 
+global_conf:
+  seed: 42
+
 model_conf:
   layer:
     depth: 4
@@ -22,6 +25,7 @@ model_conf:
 run_conf:
   train_conf:
     epoch: 500
+    batch_size: 64
 
 test_conf:
   test_path: 'data/test_lab.csv'

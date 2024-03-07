@@ -67,6 +67,7 @@ class TrainingSystem:
         smi_train_csv_file_path = os.path.join(self.project_root, observe_data_conf['smi_train_csv_file'])
         geom_train_csv_file_path = os.path.join(self.project_root, observe_data_conf['geom_train_npz_file'])
         self.data = get_data(
+            log=self.log,
             smi_path=smi_train_csv_file_path,
             geom_path=geom_train_csv_file_path,
             data_args=observe_data_conf
@@ -141,6 +142,7 @@ class TrainingSystem:
         smi_test_csv_file_path = os.path.join(self.project_root, self.test_conf['test_path'])
         geom_test_csv_file_path = os.path.join(self.project_root, self.test_conf['geom_prepath'])
         test_data = get_data(
+            log=self.log,
             smi_path=smi_test_csv_file_path,
             geom_path=geom_test_csv_file_path,
             data_args=self.data_conf

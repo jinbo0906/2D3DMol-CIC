@@ -1,5 +1,5 @@
 layer:
-  depth: 4
+  depth: 3
   activate: "ReLU"
   norm: False
   hidden_size: 400

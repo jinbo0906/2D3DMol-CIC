@@ -3,7 +3,7 @@ norm:
   max_t: 30
 observe_data:
   smi_train_csv_file: 'data/train/canonical_train_1241.csv'
-  geom_train_npz_file: 'data/train/3D_canonical_train_1241.npz'
+  geom_train_npz_file: 'data/train/3D_canonical_train_1241_rdkit.npz'
   id_columns: ['id']
   smiles_columns: 'smiles'
   target_columns: ['efficiency']
@@ -11,9 +11,6 @@ observe_data:
   env_columns: ['concentration']
   dataset_type: regression
   features_generator: ['rdkit_2d_normalized']
-#  gdb9_json_file: 'data/gdb9/incons.json'
-#  ob_sdf_file: 'data/ob_gdb9/'
-#  gbd9_init: random  # random/rdkit
   limit: -1
 
 
